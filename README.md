@@ -1,4 +1,5 @@
 🧾 Extracteur Automatisé de Factures
+
 Ce projet a pour objectif de recevoir une facture via un formulaire web, extraire les données clés automatiquement grâce à un workflow n8n intégrant l'IA d'OpenAI, puis envoyer un résumé structuré par email.
 
 🚀 Fonctionnalités
