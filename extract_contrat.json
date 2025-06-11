@@ -1,0 +1,558 @@
+{
+  "name": "extract contrat",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1020,
+        540
+      ],
+      "id": "22f355d0-428a-48d9-9a11-d0b7b7cd2f55",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug - Afficher la structure complète des données reçues\nconsole.log('Structure complète des items:', JSON.stringify(items, null, 2));\n\n// Récupération des données binaires du nœud précédent\nlet base64Data = '';\n\ntry {\n    // Vérifier différentes structures possibles\n    if (items[0].binary) {\n        console.log('Données binaires détectées');\n        \n        // Option 1: Structure Dropbox classique\n        if (items[0].binary.data && items[0].binary.data.data) {\n            base64Data = items[0].binary.data.data;\n            console.log('Données trouvées via binary.data.data');\n        }\n        // Option 2: Structure formulaire directe\n        else if (items[0].binary.data) {\n            base64Data = items[0].binary.data;\n            console.log('Données trouvées via binary.data');\n        }\n        // Option 3: Premier champ binaire trouvé (formulaire)\n        else {\n            const binaryKeys = Object.keys(items[0].binary);\n            if (binaryKeys.length > 0) {\n                const firstBinaryKey = binaryKeys[0];\n                if (items[0].binary[firstBinaryKey].data) {\n                    base64Data = items[0].binary[firstBinaryKey].data;\n                    console.log(`Données trouvées via binary.${firstBinaryKey}.data`);\n                }\n            }\n        }\n    }\n    // Option 4: Données dans JSON\n    else if (items[0].json && items[0].json.file) {\n        base64Data = items[0].json.file;\n        console.log('Données trouvées dans json.file');\n    }\n    \n    // Vérification finale\n    if (!base64Data) {\n        console.error('Aucune donnée base64 trouvée');\n        throw new Error('Aucune donnée binaire trouvée dans la structure');\n    }\n    \n    console.log('Base64 data length:', base64Data.length);\n    \n    // Retourner la chaîne base64 dans un objet json valide\n    return [\n        {\n            json: {\n                data: base64Data,\n                debug_info: {\n                    source: 'binary_extraction',\n                    data_length: base64Data.length,\n                    timestamp: new Date().toISOString()\n                }\n            }\n        }\n    ];\n    \n} catch (error) {\n    console.error('Erreur lors de l\\'extraction:', error.message);\n    return [\n        {\n            json: {\n                error: error.message,\n                debug_structure: items[0]\n            }\n        }\n    ];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        320
+      ],
+      "id": "b5208812-f6e8-463b-b9b2-f2d621bef219",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "path": "/contrat_ind.pdf"
+      },
+      "type": "n8n-nodes-base.dropbox",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        540
+      ],
+      "id": "3652fa65-7fc6-45bc-a0cd-d0f6ce52db2a",
+      "name": "Dropbox",
+      "credentials": {
+        "dropboxApi": {
+          "id": "NjlnbiGViLgrxtgO",
+          "name": "Dropbox account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/ocr",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer H3TdAPh6KInqYYCGs37bw1By2XIhthC9"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"mistral-ocr-latest\",\n  \"document\": {\n    \"type\": \"document_url\",\n    \"document_url\": \"{{ $('Webhook').item.json.body.submission.questions[2].value[0].url }}\"\n  },\n  \"include_image_base64\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -440,
+        -340
+      ],
+      "id": "4b313c3b-a17e-40be-90f4-c884b0adb55e",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "pages",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -340
+      ],
+      "id": "d8185260-9f2e-419a-aebe-1c21efbf95c1",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "aggregation": "concatenate",
+              "field": "markdown"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.summarize",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        -360
+      ],
+      "id": "df9c9ffa-0a94-4952-8d07-86235b92a3c4",
+      "name": "Summarize"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# OBJECTIF\nTu es un assistant chargé de transformer un texte issu d'une facture en un email HTML clair et lisible.  \nCe texte contient une description (parfois en Markdown) et un bloc JSON structuré.\n\n# CONSIGNES\n1. Lis et comprends le contenu fourni dans {{ $json.text }}.\n2. Si un bloc JSON est présent, priorise les données structurées qu’il contient.\n3. Génère un **résumé HTML clair** avec un **design simple et professionnel** :\n   - Crée une ou plusieurs sections selon les données disponibles (ex : client, prestataire, contrat).\n   - Chaque section doit apparaître sous forme de **tableau HTML** bien structuré.\n   - Ne montre que les sections contenant des données (aucune ligne ou cellule vide).\n4. Applique un **style HTML léger** : bordures fines, titres lisibles, fond clair.\n5. Commence le contenu HTML par une salutation personnalisée :\n   **\"Bonjour, {{ $('Webhook').item.json.body.submission.questions[0].value }} \"**  \n6. Termine le contenu HTML par une formule de politesse :\n   **\"Cordialement,<br>HD Automation\"**\n7. Ne fournis que le code HTML propre à inclure dans un email Gmail, sans balises `<html>` ou `<head>`, sauf si nécessaire pour le rendu.\n\n# STYLE HTML À UTILISER\n- Utilise des balises `<table>`, `<th>`, `<td>` pour les sections.\n- Style simple : `border: 1px solid #ddd;`, `padding: 8px;`, `background-color: #f9f9f9;`\n- Un `h2` par section (client, contrat, etc.)\n\n# OBJET D'EMAIL\nEn plus du HTML, génère un **objet d’email** clair et professionnel basé sur les infos disponibles :\n- Si possible : `\"Résumé de votre contrat de service - [Nom Client] - [Mois Année]\"`\n- Sinon : `\"Résumé de facture\"`",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        960,
+        -360
+      ],
+      "id": "4019cea6-2a59-4dae-8754-4727d1d13f30",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        -20
+      ],
+      "id": "626ff297-f511-4b0f-8155-6e569eeab0a9",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "4ZkkHbT2IbTgorzI",
+          "name": "OpenAi account AK"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.submission.questions[1].value }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        1320,
+        -20
+      ],
+      "id": "5035d7a9-7b72-49b8-b250-f4fee552e6d5",
+      "name": "Gmail",
+      "webhookId": "468a3237-c496-4dee-bf04-6598d841c70e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "4MS0hyosjPHhFw8V",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "contrat",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "nom client",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "contrat",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -920,
+        340
+      ],
+      "id": "c3560b69-cee5-495e-8e9d-1920c0a5ef95",
+      "name": "On form submission",
+      "webhookId": "48442976-5bd4-47c9-83b7-40e50c0b9233"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Récupération des données binaires du nœud précédent\nconst binaryData = items[0].binary.data;\nlet base64Data = '';\n\nif (binaryData) {\n    // Extraction du base64 seulement\n    base64Data = binaryData.data;\n    \n    // Retourner la chaîne base64 dans un objet json valide\n    items = [\n        {\n            json: {\n                data: base64Data\n            }\n        }\n    ];\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        540
+      ],
+      "id": "f11079e2-615f-465c-81e7-b8d567e3e654",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=peut tu ma structurer cette donnée   {{ $json.concatenated_markdown }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=#OBJECTIF  \nTu es un assistant qui structure les données issues d'une facture afin de les rendre lisibles pour un client et exploitables automatiquement.\n\n#CONSIGNES  \nTu reçois un texte brut extrait d’une facture (OCR ou formulaire).  \nTu dois me fournir **deux résultats distincts** :\n\n---\n\n## 1. ✅ Résumé Markdown (lisible humain)  \nOrganisé clairement avec des titres et tableaux en Markdown. Doit inclure :\n- Informations du **client**\n- Informations de la **société émettrice**\n- Détails de la **facture** (numéro, date, conditions…)\n- Détails des **prestations / produits**\n- Totaux (HT, TVA, TTC)\n\n---\n\n## 2. ✅ Bloc JSON clair et structuré (machine-friendly)  \nTu dois :\n- Structurer les données en **objets simples** (`client`, `societe`, `facture`, `totaux`)\n- **Supprimer tous les champs vides ou non renseignés**\n- N'utiliser un **tableau uniquement pour les prestations**"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        540,
+        -360
+      ],
+      "id": "38c5b03d-7701-4371-9187-33529563b777",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        540,
+        -100
+      ],
+      "id": "03bf32be-e15c-4863-a7eb-a6f9d14a8e51",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "4ZkkHbT2IbTgorzI",
+          "name": "OpenAi account AK"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "8b34fed3-1ff6-4884-bd0a-a729617c6db2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -820,
+        -320
+      ],
+      "id": "35928664-70b5-4001-8963-01c6634c401b",
+      "name": "Webhook",
+      "webhookId": "8b34fed3-1ff6-4884-bd0a-a729617c6db2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug - Afficher la structure complète des données reçues\nconsole.log('Structure complète des items:', JSON.stringify(items, null, 2));\n\nlet fileUrl = '';\ntry {\n    // Cas : URL du fichier dans items[0].json.fileUrl\n    if (items[0].json && items[0].json.fileUrl) {\n        fileUrl = items[0].json.fileUrl;\n        console.log('URL trouvée dans json.fileUrl');\n    } \n    // Cas alternatif : URL dans un autre champ JSON\n    else if (items[0].json) {\n        const keys = Object.keys(items[0].json);\n        for (const key of keys) {\n            if (typeof items[0].json[key] === 'string' && items[0].json[key].startsWith('http')) {\n                fileUrl = items[0].json[key];\n                console.log(`URL trouvée dans json.${key}`);\n                break;\n            }\n        }\n    }\n\n    if (!fileUrl) {\n        throw new Error('Aucune URL de fichier trouvée dans la structure');\n    }\n\n    // Retourne l'URL du fichier\n    return [\n        {\n            json: {\n                fileUrl,\n                debug_info: {\n                    source: 'url_extraction',\n                    timestamp: new Date().toISOString()\n                }\n            }\n        }\n    ];\n\n} catch (error) {\n    console.error('Erreur lors de l\\'extraction:', error.message);\n    return [\n        {\n            json: {\n                error: error.message,\n                debug_structure: items[0]\n            }\n        }\n    ];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        840
+      ],
+      "id": "a8f57e83-4aed-499d-8d30-d5ae56b02491",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# OBJECTIF\nTu es un assistant chargé de transformer un texte issu d'une facture en un email clair et lisible.  \nCe texte contient une description (souvent en Markdown) et un bloc JSON.  \nTu dois produire un **résumé HTML lisible sous forme de tableaux bien structurés** et l’envoyer par **email via Gmail**.\n\n# CONSIGNES\n\n1. Lis et comprends le contenu de {{ $json.text }}.\n2. Si un bloc JSON est présent, priorise les données structurées qu'il contient.\n3. Génère un **résumé HTML clair** avec un **design simple et professionnel** :\n   - Une ou plusieurs sections (client, prestataire, contrat, etc.) selon les informations disponibles.\n   - Chaque section dans un tableau HTML.\n   - Ne génère que les sections disponibles (aucune valeur vide).\n4. Ajoute un **style HTML de base** (bordures fines, fond clair, titres lisibles).\n5. Rédige un **objet d’email clair**, basé sur les informations disponibles. Par exemple :\n   - *\"Résumé de votre contrat de service - Marie Dupont - Avril 2025\"*\n   - Si nom/date non dispo, utilise un titre générique : *\"Résumé de facture \"*.\n6. Le contenu HTML sera utilisé comme corps d'email dans un envoi via Gmail.\n\n# STYLE HTML À UTILISER\nhtml\n<style>\n  table {\n    border-collapse: collapse;\n    width: 100%;\n    margin: 20px 0;\n    font-family: Arial, sans-serif;\n  }\n  th, td {\n    border: 1px solid #ddd;\n    padding: 8px 12px;\n  }\n  th {\n    background-color: #f9f9f9;\n    font-weight: bold;\n  }\n  h2 {\n    font-family: Arial, sans-serif;\n    color: #444;\n    margin-top: 30px;\n  }\n</style>\n7. Le message HTML doit commencer par une salutation personnalisée :\n    - **\"Bonjour, {{ $('Webhook').item.json.body.submission.questions[0].value }} \"**\n   \n\n8. À la fin du contenu HTML, ajoute une formule de politesse :\n   - **\"Cordialement,<br> HD Automation\"**\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -800,
+        720
+      ],
+      "id": "5eb6d1ff-a023-4b73-9e57-3f65b15063ae",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -780,
+        1020
+      ],
+      "id": "8bf46009-949a-4c0d-a51e-d27faf121730",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "4ZkkHbT2IbTgorzI",
+          "name": "OpenAi account AK"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.submission.questions[1].value }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        -580,
+        960
+      ],
+      "id": "598fa449-d89e-44a5-a67f-18b2af8757a9",
+      "name": "Gmail1",
+      "webhookId": "468a3237-c496-4dee-bf04-6598d841c70e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "4MS0hyosjPHhFw8V",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.submission.questions[0].value }}",
+        "contextWindowLength": 10000
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1140,
+        0
+      ],
+      "id": "aff273bf-9c03-45c5-aa12-43aa5a9aa6e0",
+      "name": "Simple Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Dropbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dropbox": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        []
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3eb09777-2136-4dde-bb3b-5a39bdb05527",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b5eadc60aa2160b2d4f6fd4e1236df5f22cad2d61ce7970f5addab93a65af9e8"
+  },
+  "id": "QxMWqc2ZnyUOPyhc",
+  "tags": []
+}
