@@ -138,12 +138,12 @@
         1020,
         -20
       ],
-      "id": "626ff297-f511-4b0f-8155-6e569eeab0a9",
+      "id": "",
       "name": "OpenAI Chat Model",
       "credentials": {
         "openAiApi": {
-          "id": "4ZkkHbT2IbTgorzI",
-          "name": "OpenAi account AK"
+          "id": "",
+          "name": ""
         }
       }
     },
@@ -162,12 +162,12 @@
         1320,
         -20
       ],
-      "id": "5035d7a9-7b72-49b8-b250-f4fee552e6d5",
+      "id": "",
       "name": "Gmail",
       "webhookId": "468a3237-c496-4dee-bf04-6598d841c70e",
       "credentials": {
         "gmailOAuth2": {
-          "id": "4MS0hyosjPHhFw8V",
+          "id": "",
           "name": "Gmail account"
         }
       }
@@ -258,12 +258,12 @@
         540,
         -100
       ],
-      "id": "03bf32be-e15c-4863-a7eb-a6f9d14a8e51",
+      "id": "",
       "name": "OpenAI Chat Model1",
       "credentials": {
         "openAiApi": {
-          "id": "4ZkkHbT2IbTgorzI",
-          "name": "OpenAi account AK"
+          "id": "",
+          "name": ""
         }
       }
     },
@@ -331,8 +331,8 @@
       "name": "OpenAI Chat Model2",
       "credentials": {
         "openAiApi": {
-          "id": "4ZkkHbT2IbTgorzI",
-          "name": "OpenAi account AK"
+          "id": "",
+          "name": ""
         }
       }
     },
