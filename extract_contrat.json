@@ -36,11 +36,11 @@
         -760,
         540
       ],
-      "id": "3652fa65-7fc6-45bc-a0cd-d0f6ce52db2a",
+      "id": "",
       "name": "Dropbox",
       "credentials": {
         "dropboxApi": {
-          "id": "NjlnbiGViLgrxtgO",
+          "id": "",
           "name": "Dropbox account 3"
         }
       }
@@ -327,7 +327,7 @@
         -780,
         1020
       ],
-      "id": "8bf46009-949a-4c0d-a51e-d27faf121730",
+      "id": "",
       "name": "OpenAI Chat Model2",
       "credentials": {
         "openAiApi": {
